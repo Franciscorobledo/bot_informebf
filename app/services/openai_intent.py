@@ -9,13 +9,32 @@ from app.config import settings
 from app.models import IntentResult
 
 
-SYSTEM_PROMPT = """You are an intent extraction engine.
-Return ONLY valid JSON with keys: intent, entities.
-Allowed intents: book_appointment, reschedule, cancel, affirm, deny, other.
-Entities schema:
-  service: string | null
-  date: string | null (ISO-8601 date)
-  time: string | null (HH:MM 24h)
+SYSTEM_PROMPT = """You are an assistant that extracts booking intent from user messages.
+Return ONLY valid JSON.
+
+Possible intents:
+- greet
+- book_appointment
+- reschedule_appointment
+- cancel_appointment
+- unknown
+
+Extract these fields when possible:
+- service
+- date
+- time
+- time_preference (morning, afternoon, evening)
+
+If data is missing, return null values.
+
+Example output:
+{
+  "intent": "book_appointment",
+  "service": "haircut",
+  "date": "2026-01-20",
+  "time": null,
+  "time_preference": "morning"
+}
 """
 
 
@@ -43,7 +62,15 @@ async def extract_intent(message: str) -> Optional[IntentResult]:
     except json.JSONDecodeError:
         return None
 
-    return IntentResult(intent=parsed.get("intent", "other"), entities=parsed.get("entities", {}))
+    return IntentResult(
+        intent=parsed.get("intent", "unknown"),
+        entities={
+            "service": parsed.get("service"),
+            "date": parsed.get("date"),
+            "time": parsed.get("time"),
+            "time_preference": parsed.get("time_preference"),
+        },
+    )
 
 
 EXAMPLE_PROMPT = {
@@ -53,5 +80,8 @@ EXAMPLE_PROMPT = {
 
 EXAMPLE_RESPONSE = {
     "intent": "book_appointment",
-    "entities": {"service": "deep tissue massage", "date": "2024-07-16", "time": "15:00"},
+    "service": "deep tissue massage",
+    "date": "2024-07-16",
+    "time": "15:00",
+    "time_preference": None,
 }
